@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cesium Globe with Inclined Orbit</title>
+  <link href="node_modules/cesium/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    #cesiumContainer {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <script src="node_modules/cesium/Build/Cesium/Cesium.js"></script>
+  <script>
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      timeline: true,
+      animation: true,
+      shouldAnimate: true,
+      skyBox: new Cesium.SkyBox({
+        sources: {
+          positiveX: 'path_to_your_star_texture/posX.jpg',
+          negativeX: 'path_to_your_star_texture/negX.jpg',
+          positiveY: 'path_to_your_star_texture/posY.jpg',
+          negativeY: 'path_to_your_star_texture/negY.jpg',
+          positiveZ: 'path_to_your_star_texture/posZ.jpg',
+          negativeZ: 'path_to_your_star_texture/negZ.jpg'
+        }
+      }),
+      skyAtmosphere: new Cesium.SkyAtmosphere()
+    });
+
+    const semiMajorAxis = 700000; // ความสูงของวงโคจรจากพื้นโลกในหน่วยเมตร
+    const startLongitude = 70; // จุดเริ่มต้นที่ประเทศไทย
+    const inclinationAngle = 26; // มุมเอียงของวงโคจร 26 องศา
+    const totalOrbitTime = 300; // เวลาในการโคจรครบหนึ่งรอบ (วินาที)
+    const startTime = Cesium.JulianDate.now();
+
+    // สร้างเส้นวงโคจร (polyline)
+    const orbitPositions = [];
+    for (let i = 0; i <= 360; i += 1) { // วนรอบโลก 360 องศา
+      const longitude = startLongitude + i; // หมุนรอบโลก
+      const latitude = inclinationAngle * Math.sin(Cesium.Math.toRadians(i)); // มุมเอียง
+      orbitPositions.push(longitude, latitude, semiMajorAxis);
+    }
+
+    viewer.entities.add({
+      polyline: {
+        positions: Cesium.Cartesian3.fromDegreesArrayHeights(orbitPositions),
+        width: 2,
+        material: Cesium.Color.YELLOW // สีของเส้นวงโคจร
+      }
+    });
+
+    // สร้างดาวเทียม
+    const satelliteEntity = viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(startLongitude, 0, semiMajorAxis),
+      point: {
+        pixelSize: 10,
+        color: Cesium.Color.RED
+      },
+      label: {
+        text: 'Cudesat',
+        font: '14pt monospace',
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        outlineWidth: 2,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -9)
+      }
+    });
+
+    // คำนวณตำแหน่งของดาวเทียมในทุก ๆ tick
+    viewer.clock.onTick.addEventListener(function(clock) {
+      const currentTime = Cesium.JulianDate.secondsDifference(clock.currentTime, startTime);
+      const fractionOfOrbit = (currentTime % totalOrbitTime) / totalOrbitTime;
+
+      // คำนวณค่าลองจิจูดและละติจูดสำหรับวงโคจรเอียง
+      const longitude = startLongitude + 360 * fractionOfOrbit; // หมุนรอบโลก
+      const latitude = inclinationAngle * Math.sin(Cesium.Math.toRadians(360 * fractionOfOrbit)); // มุมเอียง
+      const satellitePosition = Cesium.Cartesian3.fromDegrees(longitude, latitude, semiMajorAxis);
+
+      // อัพเดตตำแหน่งของดาวเทียม
+      satelliteEntity.position = satellitePosition;
+    });
+
+    // ตั้งค่ากล้องให้มองเห็นวงโคจร
+    viewer.scene.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(startLongitude, 0, 20000000)
+    });
+  </script>
+</body>
+</html>
